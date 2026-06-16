@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body { width: 320px; margin: 0; padding: 14px; font: 13px/1.5 -apple-system, "Apple SD Gothic Neo", sans-serif; color: #0f172a; }
+      h1 { font-size: 14px; margin: 0 0 10px; }
+      label { display: block; font-size: 11px; font-weight: 700; color: #64748b; margin: 10px 0 3px; text-transform: uppercase; }
+      input, select, textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #cbd5e1; border-radius: 6px; font: inherit; }
+      textarea { height: 90px; font-family: ui-monospace, monospace; font-size: 11px; }
+      button { margin-top: 12px; width: 100%; padding: 8px; color: #fff; background: #2563eb; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; }
+      .hint { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+      .ok { color: #16a34a; font-size: 12px; text-align: center; margin-top: 8px; min-height: 16px; }
+    </style>
+  </head>
+  <body>
+    <h1>CS Translation GPT 설정</h1>
+
+    <label>OpenAI API Key</label>
+    <input id="apiKey" type="password" placeholder="sk-..." />
+    <div class="hint">키는 chrome.storage.sync에만 저장되며 페이지/콘텐츠 스크립트에 노출되지 않습니다.</div>
+
+    <label>Chat 모델</label>
+    <input id="model" type="text" placeholder="gpt-4o-mini" />
+
+    <label>Embedding 모델 (RAG)</label>
+    <input id="embedModel" type="text" placeholder="text-embedding-3-small" />
+
+    <label>RAG Top-K</label>
+    <input id="topK" type="number" min="1" max="8" />
+
+    <label>용어사전 (JSON, 비우면 기본값 사용)</label>
+    <textarea id="glossary" placeholder='{"Korea University":"고유명사 유지"}'></textarea>
+
+    <button id="save">저장</button>
+    <div class="ok" id="status"></div>
+
+    <script src="popup.js"></script>
+  </body>
+</html>

@@ -1,0 +1,30 @@
+{
+  "manifest_version": 3,
+  "name": "CS Translation GPT",
+  "version": "1.0.0",
+  "description": "다국어 CS 상담 보조 — 드래그한 외국어를 번역하고, 과거 답변(RAG)을 검색해 회신 초안을 추천하는 사이드바.",
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus"],
+  "host_permissions": ["https://api.openai.com/*"],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/content/content.js"],
+      "css": ["src/content/sidebar.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "src/popup/popup.html",
+    "default_title": "CS Translation GPT 설정"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["src/data/glossary.json", "src/data/examples.json"],
+      "matches": ["http://*/*", "https://*/*"]
+    }
+  ]
+}

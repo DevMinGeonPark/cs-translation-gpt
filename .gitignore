@@ -1,0 +1,15 @@
+# 비밀/로컬
+.env
+*.key
+secrets.json
+
+# OS / 에디터
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# 빌드/패키지
+node_modules/
+dist/
+*.zip
