@@ -1,33 +1,35 @@
+![CS Translation GPT](docs/banner.png)
+
 # CS Translation GPT
 
-> 다국어 CS 상담 보조 크롬 확장(Manifest V3). 상담사가 **외국어 문의를 드래그하면 사이드바에 한국어 번역 + 회신 초안을 동시에 표시**하고, 회신 초안은 **과거 답변(RAG) 검색**으로 톤·정책을 맞춘다.
+다국어 CS 상담을 돕는 크롬 확장(Manifest V3). 외국어 문의를 드래그하면 사이드바에 한국어 번역과 회신 초안이 같이 뜬다. 회신 초안은 과거 답변을 RAG로 검색해서 톤과 정책을 맞춘다.
 
-원본은 Hiredivercity에서 외국인 RC(외국인등록증) 발급 다국어 온라인 CS 업무 중, 1건당 평균 처리시간을 줄이기 위해 만든 사내 도구다. 본 저장소는 그 개념을 **클린룸으로 재구현한 공개용 버전**이다(사내 코드/데이터 미포함, 예시 데이터는 합성).
+Hiredivercity에서 외국인등록증(RC) 발급 관련 다국어 온라인 CS를 하면서, 문의 1건 처리 시간을 줄이려고 만든 사내 도구가 출발점이었다. 이 저장소는 사내 코드와 데이터를 빼고 개념만 다시 구현한 공개용 버전이다(예시 데이터는 합성).
 
 ## 데모
 
-중국어 비자 문의 메일을 드래그 → 한국어 번역 + 요약 + 중국어 회신 초안(RAG 참고) 생성 → 복사까지. 실제 `gpt-5.4-mini` 호출.
+중국어 비자 문의 메일을 드래그해서 한국어 번역 → 요약 → 중국어 회신 초안까지 만들고 복사하는 과정이다.
 
-![데모: 중국어 CS 문의 번역 + 회신 추천](docs/demo.gif)
+![데모](docs/demo.gif)
 
 ## 동작 흐름
 
 ```
-[CS 풀 화면에서 영어 문의 드래그]
+[CS 화면에서 외국어 문의 드래그]
         │  (mouseup → 트리거 버튼 / 우클릭 메뉴)
         ▼
 [content script] 선택 텍스트 추출 → background로 전달
         ▼
 [background service worker]
    1) RAG: examples(과거 답변) 임베딩 → 코사인 유사도 top-k 검색
-   2) GPT: 용어사전(CoT) + RAG 예시 주입 → 번역/요약/회신(JSON) 생성
+   2) GPT: 용어사전 + RAG 예시 주입 → 번역/요약/회신(JSON) 생성
         ▼
 [사이드바] 번역 · 요약 · 추천 회신(복사) · 적용 용어 · RAG 참고 예시 표시
 ```
 
-### (a) 시퀀스: 드래그 → content script → background worker
+### (a) 드래그 → content script → background worker
 
-MV3에서 content script와 service worker는 **메시지 패싱**으로만 통신한다(`chrome.runtime.sendMessage` / `onMessage`). API 키는 background에만 존재하므로, content script는 키를 모르는 채 텍스트만 넘긴다.
+MV3에서 content script와 service worker는 메시지 패싱으로만 통신한다(`chrome.runtime.sendMessage` / `onMessage`). API 키는 background에만 두기 때문에, content script는 키를 모른 채 텍스트만 넘긴다.
 
 ```mermaid
 sequenceDiagram
@@ -51,7 +53,7 @@ sequenceDiagram
 
 ### (b) background 내부: RAG 검색 + GPT 생성
 
-RAG 인덱스는 `examples`(질문/답변 쌍)를 임베딩해 `chrome.storage.local`에 캐시한다. 캐시 키는 **예시 본문 해시 + 임베딩 모델명**의 SHA-256 시그니처라, 예시가 바뀌면 자동 재계산된다. API 키가 없거나 임베딩 호출이 실패하면 **키워드 교집합 폴백**으로 동작한다.
+RAG 인덱스는 `examples`(질문/답변 쌍)를 임베딩해 `chrome.storage.local`에 캐시한다. 캐시 키는 예시 본문 해시와 임베딩 모델명을 합친 SHA-256 시그니처라, 예시가 바뀌면 자동으로 다시 계산된다. 키가 없거나 임베딩 호출이 실패하면 키워드 교집합 폴백으로 동작한다.
 
 ```mermaid
 flowchart TD
@@ -73,14 +75,14 @@ flowchart TD
     Cos --> Prompt
     KW --> Prompt
 
-    Prompt[프롬프트 구성<br/>system: 용어사전 CoT + 출력 JSON 강제<br/>user: RAG few-shot + 고객 메시지]
+    Prompt[프롬프트 구성<br/>system: 용어사전 + 출력 JSON 강제<br/>user: RAG few-shot + 고객 메시지]
     Prompt --> Chat[Chat Completions 호출<br/>response_format: json_object]
     Chat --> Out([translation / summary /<br/>suggestedReply / usedTerms<br/>+ retrieved 반환])
 ```
 
 ### (c) 사이드바 렌더
 
-background가 돌려준 JSON을 받아 섹션별로 렌더한다. 추천 회신은 클립보드 복사 버튼을 단다.
+background가 돌려준 JSON을 받아 섹션별로 렌더한다. 추천 회신에는 클립보드 복사 버튼을 단다.
 
 ```mermaid
 flowchart LR
@@ -92,12 +94,15 @@ flowchart LR
     P --> X["RAG 참고 예시 (질문 + 유사도 점수)"]
 ```
 
-## 왜 이렇게 설계했나 (의사결정)
+## 설계 메모
 
-- **번역 + 회신 동시 제공**: 단순 번역기는 "내용 파악"만 해결. CS는 회신 작성까지가 일이라, 회신 초안을 같이 줘서 단계를 합쳤다.
-- **용어사전 고정(CoT)**: 일반 번역기가 "Korea University"를 엉뚱하게 의역해 신뢰도가 떨어지는 문제 → 고유명사/비자코드/정책 용어를 system prompt에 고정.
-- **RAG로 답변 일관성**: 같은 유형 문의(RC 발급 기간, 주소 정정, 대리 수령 등)에 매번 다른 톤으로 답하지 않도록 과거 답변을 검색해 few-shot으로 주입.
-- **키는 background에만**: API 키가 상담 페이지(content script)에 노출되지 않도록 모든 OpenAI 호출은 service worker에서만.
+번역기만 쓰면 내용 파악까지밖에 안 된다. CS는 회신을 쓰는 게 일이라, 번역과 회신 초안을 한 번에 내놓게 했다.
+
+일반 번역기는 "Korea University" 같은 고유명사를 엉뚱하게 의역해서 신뢰도가 떨어진다. 그래서 고유명사, 비자 코드, 정책 용어는 용어사전으로 묶어 system prompt에 고정한다.
+
+같은 유형 문의(RC 발급 기간, 주소 정정, 대리 수령 등)에 매번 다른 톤으로 답하지 않도록, 과거 답변을 검색해 few-shot으로 넣는다.
+
+API 키는 service worker에만 둔다. 상담 페이지에 키가 닿지 않게, OpenAI 호출은 전부 background에서 한다.
 
 ## 구조
 
@@ -113,7 +118,7 @@ src/
   lib/
     openai.js             # Chat Completions + Embeddings
     rag.js                # 임베딩 인덱스 캐시 + 코사인 검색 (+키워드 폴백)
-    prompts.js            # 용어사전 CoT + RAG 주입 + JSON 출력 강제
+    prompts.js            # 용어사전 + RAG 주입 + JSON 출력 강제
   data/
     glossary.json         # 용어사전(고유명사/비자코드) — 합성
     examples.json         # 과거 답변 예시(RAG 지식) — 합성
@@ -121,19 +126,19 @@ src/
 
 ## 설치 / 사용
 
-1. `chrome://extensions` → 우상단 **개발자 모드** ON → **압축해제된 확장 프로그램 로드** → 이 폴더 선택
-2. 확장 아이콘 클릭 → **OpenAI API Key** 입력 후 저장 (모델/Top-K/용어사전도 여기서)
-3. 아무 페이지에서 외국어 텍스트를 드래그 → 떠오르는 **"CS 번역+회신"** 버튼 클릭 (또는 우클릭 → "CS 번역 + 회신 추천")
-4. 오른쪽 사이드바에서 번역·요약·추천 회신 확인, 회신은 **복사** 버튼으로 바로 사용
+1. `chrome://extensions`에서 우상단 개발자 모드를 켜고, "압축해제된 확장 프로그램 로드"로 이 폴더를 선택한다.
+2. 확장 아이콘을 눌러 OpenAI API Key를 입력하고 저장한다(모델, Top-K, 용어사전도 여기서 설정).
+3. 아무 페이지에서 외국어 텍스트를 드래그하면 뜨는 "CS 번역+회신" 버튼을 누른다(또는 우클릭 → "CS 번역 + 회신 추천").
+4. 오른쪽 사이드바에서 번역·요약·추천 회신을 확인하고, 회신은 복사 버튼으로 바로 가져다 쓴다.
 
-> API 키가 없으면 RAG는 **키워드 폴백**으로 동작하지만, 번역/회신 생성은 키가 필요하다.
+키가 없으면 RAG는 키워드 폴백으로 돌지만, 번역과 회신 생성에는 키가 필요하다.
 
 ## 기술 스택
 
-Manifest V3 · JavaScript(ES Modules, service worker) · Chrome Extension API(storage/contextMenus/scripting) · OpenAI Chat Completions(JSON mode) · OpenAI Embeddings · 코사인 유사도 RAG
+Manifest V3, JavaScript(ES Modules, service worker), Chrome Extension API(storage/contextMenus/scripting), OpenAI Chat Completions(JSON mode)와 Embeddings, 코사인 유사도 기반 RAG.
 
-## 한계 / TODO
+## 한계 / 앞으로
 
-- 임베딩 인덱스는 `chrome.storage.local` 캐시(예시 변경 시 자동 재계산). 예시가 커지면 벡터DB로 분리 필요.
-- 번역 언어 자동 감지는 모델에 위임 — 저신뢰 입력에 대한 가드 보강 여지.
-- 회신 톤/정책을 조직별로 분리하려면 glossary/examples를 프로파일 단위로 확장.
+- 임베딩 인덱스는 `chrome.storage.local` 캐시다(예시가 바뀌면 다시 계산). 예시가 커지면 벡터 DB로 빼야 한다.
+- 언어 감지는 모델에 맡겼다. 신뢰도가 낮은 입력에 대한 가드는 더 보강할 여지가 있다.
+- 조직별로 톤이나 정책을 나누려면 glossary/examples를 프로파일 단위로 확장해야 한다.
