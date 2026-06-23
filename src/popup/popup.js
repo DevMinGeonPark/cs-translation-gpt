@@ -1,5 +1,5 @@
 const fields = ["apiKey", "model", "embedModel", "topK"];
-const DEFAULTS = { model: "gpt-4o-mini", embedModel: "text-embedding-3-small", topK: 3 };
+const DEFAULTS = { model: "gpt-5.4-mini", embedModel: "text-embedding-3-small", topK: 3 };
 
 async function load() {
   const s = await chrome.storage.sync.get([...fields, "glossary"]);

@@ -6,7 +6,7 @@ import { ensureIndex, retrieve } from "./lib/rag.js";
 import { buildSystemPrompt, buildUserPrompt } from "./lib/prompts.js";
 
 const DEFAULTS = {
-  model: "gpt-4o-mini",
+  model: "gpt-5.4-mini",
   embedModel: "text-embedding-3-small",
   topK: 3,
 };
