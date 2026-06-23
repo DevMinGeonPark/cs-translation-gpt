@@ -2,7 +2,7 @@
 
 > 다국어 CS 상담 보조 크롬 확장(Manifest V3). 상담사가 **외국어 문의를 드래그하면 사이드바에 한국어 번역 + 회신 초안을 동시에 표시**하고, 회신 초안은 **과거 답변(RAG) 검색**으로 톤·정책을 맞춘다.
 
-원본은 Hiredivercity에서 외국인 RC(외국인등록증) 발급 다국어 온라인 CS 업무 중, 1건당 평균 처리시간을 줄이기 위해 만든 사내 도구다. 본 저장소는 그 개념을 **클린룸으로 재구현한 포트폴리오 버전**이다(사내 코드/데이터 미포함, 예시 데이터는 합성).
+원본은 Hiredivercity에서 외국인 RC(외국인등록증) 발급 다국어 온라인 CS 업무 중, 1건당 평균 처리시간을 줄이기 위해 만든 사내 도구다. 본 저장소는 그 개념을 **클린룸으로 재구현한 공개용 버전**이다(사내 코드/데이터 미포함, 예시 데이터는 합성).
 
 ## 동작 흐름
 
@@ -17,6 +17,73 @@
    2) GPT: 용어사전(CoT) + RAG 예시 주입 → 번역/요약/회신(JSON) 생성
         ▼
 [사이드바] 번역 · 요약 · 추천 회신(복사) · 적용 용어 · RAG 참고 예시 표시
+```
+
+### (a) 시퀀스: 드래그 → content script → background worker
+
+MV3에서 content script와 service worker는 **메시지 패싱**으로만 통신한다(`chrome.runtime.sendMessage` / `onMessage`). API 키는 background에만 존재하므로, content script는 키를 모르는 채 텍스트만 넘긴다.
+
+```mermaid
+sequenceDiagram
+    actor Agent as 상담사
+    participant CS as content script<br/>(content.js)
+    participant BG as service worker<br/>(background.js)
+    participant API as OpenAI API
+
+    Agent->>CS: 외국어 문의 드래그 (mouseup)
+    CS->>CS: 선택 텍스트 추출 → 트리거 버튼 표시
+    Note over Agent,CS: 우클릭 컨텍스트 메뉴로도 트리거 가능<br/>(contextMenus → CS_TRIGGER)
+    Agent->>CS: "CS 번역+회신" 클릭
+    CS->>CS: 사이드바 렌더 (로딩 상태)
+    CS->>BG: sendMessage({ type: "CS_PROCESS", text })
+    Note over BG: API 키는 background에만 존재<br/>(content script에 비노출)
+    BG->>API: RAG 검색 + GPT 생성 (아래 (b))
+    API-->>BG: 임베딩 / JSON 응답
+    BG-->>CS: { ok, data: { translation, summary,<br/>suggestedReply, usedTerms, retrieved } }
+    CS->>Agent: 사이드바 렌더 (아래 (c))
+```
+
+### (b) background 내부: RAG 검색 + GPT 생성
+
+RAG 인덱스는 `examples`(질문/답변 쌍)를 임베딩해 `chrome.storage.local`에 캐시한다. 캐시 키는 **예시 본문 해시 + 임베딩 모델명**의 SHA-256 시그니처라, 예시가 바뀌면 자동 재계산된다. API 키가 없거나 임베딩 호출이 실패하면 **키워드 교집합 폴백**으로 동작한다.
+
+```mermaid
+flowchart TD
+    Start([CS_PROCESS 수신]) --> Key{API 키 있음?}
+    Key -- 없음 --> Err[에러 반환:<br/>번역/회신은 키 필요]
+    Key -- 있음 --> Load[glossary.json + examples.json 로드]
+
+    Load --> Sig[시그니처 계산<br/>SHA-256: examples 본문 + 임베딩 모델명]
+    Sig --> Cache{chrome.storage.local<br/>캐시 시그니처 일치?}
+    Cache -- 일치 --> Idx[캐시된 임베딩 인덱스 사용]
+    Cache -- 불일치/없음 --> Build[examples 임베딩 생성]
+    Build --> Save[chrome.storage.local 캐시 저장]
+    Save --> Idx
+
+    Idx --> Vec{임베딩 벡터 사용 가능?}
+    Vec -- 예 --> Cos[쿼리 임베딩 → 코사인 유사도 top-k]
+    Vec -- 아니오 --> KW[키워드 교집합 폴백 top-k]
+
+    Cos --> Prompt
+    KW --> Prompt
+
+    Prompt[프롬프트 구성<br/>system: 용어사전 CoT + 출력 JSON 강제<br/>user: RAG few-shot + 고객 메시지]
+    Prompt --> Chat[Chat Completions 호출<br/>response_format: json_object]
+    Chat --> Out([translation / summary /<br/>suggestedReply / usedTerms<br/>+ retrieved 반환])
+```
+
+### (c) 사이드바 렌더
+
+background가 돌려준 JSON을 받아 섹션별로 렌더한다. 추천 회신은 클립보드 복사 버튼을 단다.
+
+```mermaid
+flowchart LR
+    Data[background 응답 JSON] --> P[사이드바 패널]
+    P --> T["번역 (sourceLang 표기)"]
+    P --> S[요약]
+    P --> R["추천 회신 — 복사 버튼"]
+    P --> U["적용 용어 (usedTerms)"]
+    P --> X["RAG 참고 예시 (질문 + 유사도 점수)"]
 ```
 
 ## 왜 이렇게 설계했나 (의사결정)
