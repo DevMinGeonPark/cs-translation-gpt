@@ -2,7 +2,7 @@
 
 # CS Translation GPT
 
-다국어 CS 상담을 돕는 크롬 확장(Manifest V3). 외국어 문의를 드래그하면 사이드바에 한국어 번역과 회신 초안이 같이 뜬다. 회신 초안은 과거 답변을 RAG로 검색해서 톤과 정책을 맞춘다.
+다국어 CS 상담을 돕는 크롬 확장(Manifest V3). 외국어 문의를 드래그하면 사이드바에 한국어 번역과 회신 초안이 같이 뜬다. 회신은 한국어 초안(내용 확인용)과 고객 언어 번역본(복사해서 발송)을 함께 내놓고, 과거 답변을 RAG로 검색해서 톤과 정책을 맞춘다.
 
 Hiredivercity에서 외국인등록증(RC) 발급 관련 다국어 온라인 CS를 하면서, 문의 1건 처리 시간을 줄이려고 만든 사내 도구가 출발점이었다. 이 저장소는 사내 코드와 데이터를 빼고 개념만 다시 구현한 공개용 버전이다(예시 데이터는 합성).
 
@@ -47,7 +47,7 @@ sequenceDiagram
     Note over BG: API 키는 background에만 존재<br/>(content script에 비노출)
     BG->>API: RAG 검색 + GPT 생성 (아래 (b))
     API-->>BG: 임베딩 / JSON 응답
-    BG-->>CS: { ok, data: { translation, summary,<br/>suggestedReply, usedTerms, retrieved } }
+    BG-->>CS: { ok, data: { translation, summary,<br/>suggestedReplyKo, suggestedReply, usedTerms, retrieved } }
     CS->>Agent: 사이드바 렌더 (아래 (c))
 ```
 
@@ -77,7 +77,7 @@ flowchart TD
 
     Prompt[프롬프트 구성<br/>system: 용어사전 + 출력 JSON 강제<br/>user: RAG few-shot + 고객 메시지]
     Prompt --> Chat[Chat Completions 호출<br/>response_format: json_object]
-    Chat --> Out([translation / summary /<br/>suggestedReply / usedTerms<br/>+ retrieved 반환])
+    Chat --> Out([translation / summary /<br/>suggestedReplyKo / suggestedReply / usedTerms<br/>+ retrieved 반환])
 ```
 
 ### (c) 사이드바 렌더
@@ -89,7 +89,7 @@ flowchart LR
     Data[background 응답 JSON] --> P[사이드바 패널]
     P --> T["번역 (sourceLang 표기)"]
     P --> S[요약]
-    P --> R["추천 회신 — 복사 버튼"]
+    P --> R["추천 회신: 한국어 초안 + 고객 언어 번역본<br/>— 각각 복사 버튼"]
     P --> U["적용 용어 (usedTerms)"]
     P --> X["RAG 참고 예시 (질문 + 유사도 점수)"]
 ```

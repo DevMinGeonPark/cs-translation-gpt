@@ -92,7 +92,12 @@
     body.innerHTML = [
       section(`번역 <small>(${escapeHtml(d.sourceLang || "?")})</small>`, d.translation || ""),
       section("요약", d.summary || ""),
-      section("추천 회신", d.suggestedReply || "", { copy: true }),
+      section("추천 회신 <small>(한국어 초안)</small>", d.suggestedReplyKo || "", { copy: true }),
+      section(
+        `회신 번역 <small>(${escapeHtml(d.sourceLang || "고객 언어")} · 복사해서 발송)</small>`,
+        d.suggestedReply || "",
+        { copy: true }
+      ),
       d.usedTerms?.length
         ? `<div class="csgpt-sec"><div class="csgpt-sec-title">적용 용어</div><div class="csgpt-sec-content">${d.usedTerms
             .map(escapeHtml)
